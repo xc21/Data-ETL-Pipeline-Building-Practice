@@ -8,6 +8,9 @@ Created on Tue Jun 19 17:16:59 2018
 import json
 import requests
 import pandas as pd
+import mysql.connector
+import time
+from sqlalchemy import create_engine
 
 
 # Part 1
@@ -63,15 +66,70 @@ def getdf( js, n, headers ):
 		print( "Incorrect number of headers!" )
 		return None
 	else:
+      #assign the column name as given
 		my_df.columns = headers
 		return my_df
+ 
+#print out the result for task2
+df1 = getdf(data1, 3, [ "line_name", "description" ])
+print(df1)
 
 # task 3
-pass
+try:
+    import pymysql
+    pymysql.install_as_MySQLdb()
+except ImportError:
+    pass
 
-# step 2
 
-# task 3
+engine = create_engine("mysql://root:19921013@kara@localhost:3306/SEPTA_test?charset=utf8",encoding="utf-8", echo=True)
+cnx_mine = mysql.connector.connect(host='localhost',port=3306,user='root',
+                            password='19921013@kara',charset='utf8')
+def constructDB (cnx,tableName, dataSource):
+    cnx = cnx
+    cursor = cnx.cursor()
+    # for step 1: when there are only 2 columns in the data frame
+    if len(dataSource.columns) == 2:
+     #create a new database: SEPTA_test
+        cursor.execute("CREATE DATABASE SEPTA_test")
+     #create and initialize a new table, tablename as given   
+        sql_createTable = "CREATE TABLE IF NOT EXISTS "+tableName+" (line_name TEXT NOT NULL, description TEXT)"
+        try:
+            #specify the cursor to use the new database
+            cursor.execute("USE SEPTA_test")
+            cursor.execute(sql_createTable) 
+        #error tracking
+        except mysql.connector.Error as e:
+            print('create table orange fails!{}'.format(e)) 
+            dataSource.to_sql(tableName,con=engine,if_exists='replace')
+    #for step 2        
+    else:
+        #id as the primary key
+        sql_createTable2 = "CREATE TABLE IF NOT EXISTS "+tableName+" (id TINYTEXT NOT NULL, time DATETIME NOT NULL, late TINYINT NOTNULL, lat  DECIMAL(10,7) NOT NULL,  lon  DECIMAL(15,12) NOT NULL, nextstop VARCHAR(30) NOT NULL, source VARCHAR(30) NOT NULL, dest VARCHAR(30) NOT NULL, PRIMARY KEY (id))"
+        try:
+            cursor.execute("USE SEPTA_test")
+            cursor.execute(sql_createTable2) 
+        #error tracking
+        except mysql.connector.Error as e:
+            print('create table orange fails!{}'.format(e)) 
+            dataSource.to_sql(tableName,con=engine,if_exists='replace')
+    return dataSource
+
+# step 2: fetch the data from the API to get the latest reported information for each line in each direction
+# task 1:run the call
+# task 1
+url2 = "https://www.septastats.com/api/current/line/airport/inbound/latest"
+data2 = apiResult(url2)
+print(data2)
+
+# task 2
+df2 = getdf(data2, 6, [])
+print(df2)
+
+# task 3: store the data into the database as a new table
+# transform the result from getdf before storing it to the database to keep the consistency of the tabular form
+
+
 sort_key_list = ['time','id', 'source', 'dest', 'nextstop', 'late', 'lat', 'lon']
 def preprocessdf( df ):
 	# set first column as column names and transpose
